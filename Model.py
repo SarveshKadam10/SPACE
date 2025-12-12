@@ -6,9 +6,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, classification_report
 import joblib
 import Connection as con
+import pandas as pd
 
 # -----------------------------
-# LOAD CSV MERGED DATAFRAME
+# LOAD FINAL MERGED DATA
 # -----------------------------
 cdf = con.get_data()
 
@@ -31,9 +32,22 @@ binary_features = [
     "fairings_recovered","ship_active"
 ]
 
+# -----------------------------
+# FIX MISSING VALUES
+# -----------------------------
+cdf[numeric_features] = cdf[numeric_features].fillna(0)
+cdf[binary_features] = cdf[binary_features].fillna(0)
+cdf[categorical_features] = cdf[categorical_features].fillna("Unknown")
+
+# -----------------------------
+# TRAINING INPUTS
+# -----------------------------
 X = cdf[numeric_features + categorical_features + binary_features]
 y = cdf["success"]
 
+# -----------------------------
+# PIPELINE
+# -----------------------------
 preprocessor = ColumnTransformer(
     transformers=[("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features)],
     remainder="passthrough"
@@ -44,16 +58,21 @@ model = Pipeline([
     ("classifier", LogisticRegression(max_iter=2000, class_weight="balanced", solver="liblinear"))
 ])
 
-if __name__ == "__main__":
-    x_train, x_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.1, stratify=y, random_state=42
-    )
+# -----------------------------
+# TRAIN
+# -----------------------------
+x_train, x_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.1, stratify=y, random_state=42
+)
 
-    model.fit(x_train, y_train)
-    pred = model.predict(x_test)
+model.fit(x_train, y_train)
+pred = model.predict(x_test)
 
-    print("Accuracy:", accuracy_score(y_test, pred))
-    print(classification_report(y_test, pred, zero_division=0))
+print("Accuracy:", accuracy_score(y_test, pred))
+print(classification_report(y_test, pred, zero_division=0))
 
-    joblib.dump(model, "launch_success_model.pkl")
-    print("Model saved: launch_success_model.pkl")
+# -----------------------------
+# SAVE MODEL
+# -----------------------------
+joblib.dump(model, "launch_success_model.pkl")
+print("Model saved.")
