@@ -1,19 +1,17 @@
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
 import pandas as pd
 import joblib
 import Connection as con
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
 
-# Load merged data
+# Load data
 cdf = con.get_data()
 
-# ================================
 # IMPORTANT FEATURES ONLY
-# ================================
 numeric_features = [
     "payload_mass_kg",
     "core_reuse_count",
@@ -32,17 +30,16 @@ categorical_features = [
 
 all_features = numeric_features + categorical_features
 
-# Only keep needed columns
-cdf = cdf[all_features + ["success"]]
+df = cdf[all_features + ["success"]]
 
-# Clean missing data
-cdf[numeric_features] = cdf[numeric_features].fillna(0)
-cdf[categorical_features] = cdf[categorical_features].fillna("Unknown")
+# Clean numeric and categorical missing data
+df[numeric_features] = df[numeric_features].fillna(0)
+df[categorical_features] = df[categorical_features].fillna("Unknown")
 
-X = cdf[all_features]
-y = cdf["success"].astype(int)
+X = df[all_features]
+y = df["success"].astype(int)
 
-# Preprocessor
+# Preprocessing for categorical data
 preprocessor = ColumnTransformer(
     transformers=[
         ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features)
@@ -50,20 +47,27 @@ preprocessor = ColumnTransformer(
     remainder="passthrough",
 )
 
-# Logistic Regression Model
+# Random Forest Model
 model = Pipeline([
     ("preprocess", preprocessor),
-    ("logreg", LogisticRegression(max_iter=2000, class_weight="balanced")),
+    ("rf", RandomForestClassifier(
+        n_estimators=500,
+        max_depth=None,
+        min_samples_split=4,
+        class_weight="balanced",
+        random_state=42
+    ))
 ])
 
 # Train-test split
 x_train, x_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.20, random_state=42, stratify=y
+    X, y, test_size=0.2, stratify=y, random_state=42
 )
 
 model.fit(x_train, y_train)
 pred = model.predict(x_test)
 
-print("Accuracy:", accuracy_score(y_test, pred))
+print("Random Forest Accuracy:", accuracy_score(y_test, pred))
+
 joblib.dump(model, "launch_success_model.pkl")
 print("Model saved as launch_success_model.pkl")
